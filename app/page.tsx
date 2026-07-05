@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
+import Image from "next/image";
 import SiteShell from "./components/site-shell";
 
 type ScanStatus = "safe" | "warning" | "danger" | "error";
@@ -14,21 +15,6 @@ type ScanResult = {
   source: string;
 };
 
-const suspiciousTerms = [
-  "free",
-  "bonus",
-  "winner",
-  "gift",
-  "verify",
-  "urgent",
-  "click",
-  "crypto",
-  "wallet",
-  "bank",
-  "login",
-  "password",
-];
-
 function normalizeUrl(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -36,18 +22,8 @@ function normalizeUrl(value: string) {
   return `https://${trimmed}`;
 }
 
-function buildPrefixedUrl(value: string, domain: string) {
-  const normalized = normalizeUrl(value);
-  if (!normalized) return "";
-  const cleanDomain = domain.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  if (!cleanDomain || cleanDomain === "your-domain.com") {
-    return normalized;
-  }
-  return `https://${cleanDomain}/scan?target=${encodeURIComponent(normalized)}`;
-}
-
-function createFallbackResult(title: string, summary: string, status: ScanStatus, details: string[], scanUrl: string, source: string): ScanResult {
-  return { title, summary, status, details, scanUrl, source };
+function createFallbackResult(title: string, summary: string, status: ScanStatus, details: string[], source: string): ScanResult {
+  return { title, summary, status, details, scanUrl: "", source };
 }
 
 export default function Home() {
@@ -62,7 +38,7 @@ export default function Home() {
   const handleUrlScan = async () => {
     const normalized = normalizeUrl(urlInput);
     if (!normalized) {
-      setUrlResult(createFallbackResult("Missing target", "Please enter a website URL to scan.", "warning", ["A URL is required before scanning."], "", "Local validation"));
+      setUrlResult(createFallbackResult("Missing target", "Please enter a website URL to scan.", "warning", ["A URL is required before scanning."], "Local validation"));
       return;
     }
 
@@ -76,7 +52,7 @@ export default function Home() {
       const data = await response.json();
       setUrlResult(data);
     } catch {
-      setUrlResult(createFallbackResult("Scan failed", "The scanner could not complete the request right now.", "error", ["Please check your connection and try again."], "", "Local fallback"));
+      setUrlResult(createFallbackResult("Scan failed", "The scanner could not complete the request right now.", "error", ["Please check your connection and try again."], "Local fallback"));
     } finally {
       setLoading(false);
     }
@@ -84,7 +60,7 @@ export default function Home() {
 
   const handleMessageScan = async () => {
     if (!messageInput.trim()) {
-      setMessageResult(createFallbackResult("No message provided", "Add a suspicious message or text snippet to inspect it.", "warning", ["Paste the message you want to review."], "", "Local validation"));
+      setMessageResult(createFallbackResult("No message provided", "Add a suspicious message or text snippet to inspect it.", "warning", ["Paste the message you want to review."], "Local validation"));
       return;
     }
 
@@ -98,7 +74,7 @@ export default function Home() {
       const data = await response.json();
       setMessageResult(data);
     } catch {
-      setMessageResult(createFallbackResult("Message scan failed", "We could not analyze the message at the moment.", "error", ["Please try again shortly."], "", "Local fallback"));
+      setMessageResult(createFallbackResult("Message scan failed", "We could not analyze the message at the moment.", "error", ["Please try again shortly."], "Local fallback"));
     } finally {
       setLoading(false);
     }
@@ -123,7 +99,7 @@ export default function Home() {
       const data = await response.json();
       setFileResult(data);
     } catch {
-      setFileResult(createFallbackResult("File scan failed", "The file could not be analyzed right now.", "error", ["Please try another file or retry."], "", "Local fallback"));
+      setFileResult(createFallbackResult("File scan failed", "The file could not be analyzed right now.", "error", ["Please try another file or retry."], "Local fallback"));
     } finally {
       setLoading(false);
     }
@@ -143,7 +119,7 @@ export default function Home() {
       const data = await response.json();
       setImageResult(data);
     } catch {
-      setImageResult(createFallbackResult("Image scan failed", "The image could not be analyzed right now.", "error", ["Please try another image or retry."], "", "Local fallback"));
+      setImageResult(createFallbackResult("Image scan failed", "The image could not be analyzed right now.", "error", ["Please try another image or retry."], "Local fallback"));
     } finally {
       setLoading(false);
     }
@@ -152,17 +128,17 @@ export default function Home() {
   const renderResultCard = (result: ScanResult | null) => {
     if (!result) {
       return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-6 text-left text-sm text-slate-400">
+        <div className="rounded-2xl border border-rose-200/70 bg-white/70 p-6 text-left text-sm text-rose-700/80">
           Results will appear here after you run a check.
         </div>
       );
     }
 
     const toneStyles: Record<ScanStatus, string> = {
-      safe: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
-      warning: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-      danger: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-      error: "border-slate-500/40 bg-slate-500/10 text-slate-300",
+      safe: "border-emerald-400/40 bg-emerald-50 text-emerald-700",
+      warning: "border-amber-400/40 bg-amber-50 text-amber-700",
+      danger: "border-rose-400/40 bg-rose-50 text-rose-700",
+      error: "border-slate-300 bg-slate-50 text-slate-700",
     };
 
     return (
@@ -172,7 +148,7 @@ export default function Home() {
             <p className="text-sm uppercase tracking-[0.25em] opacity-70">{result.source}</p>
             <h3 className="mt-1 text-xl font-semibold">{result.title}</h3>
           </div>
-          <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em]">
+          <span className="rounded-full border border-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em]">
             {result.status}
           </span>
         </div>
@@ -182,48 +158,44 @@ export default function Home() {
             <li key={detail}>{detail}</li>
           ))}
         </ul>
-        {result.scanUrl ? <p className="mt-4 break-all text-xs opacity-80">Preview: {result.scanUrl}</p> : null}
       </div>
     );
   };
 
   return (
-    <SiteShell title="HoaxShield threat scanner" emoji="🛡️" description="Scan websites, messages, files, and images with a modern security-first workflow.">
+    <SiteShell title="HoaxShield threat scanner" emoji="🛡️" description="Scan websites, messages, files, and images with a calm and modern review experience.">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-cyan-950/40 backdrop-blur transition duration-500 hover:-translate-y-1 hover:shadow-cyan-900/40">
-          <div className="grid gap-8 p-8 lg:grid-cols-[1.1fr_0.9fr] lg:p-12">
+        <section className="overflow-hidden rounded-[2rem] border border-rose-200/70 bg-white/80 shadow-2xl shadow-rose-200/50 backdrop-blur transition duration-500 hover:-translate-y-1">
+          <div className="grid gap-8 p-8 lg:grid-cols-[1.05fr_0.95fr] lg:p-12">
             <div>
-              <span className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-300">
-                Google-backed threat analysis
+              <span className="inline-flex rounded-full border border-rose-300 bg-rose-100 px-3 py-1 text-sm font-medium text-rose-700">
+                Google-backed review
               </span>
-              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                HoaxShield checks links, messages, files, and images before they reach your users.
+              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-rose-900 sm:text-5xl">
+                Review links, messages, files, and images in one soft and simple workspace.
               </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-400">
-                Scan suspicious URLs with Google Safe Browsing, then inspect messages and uploads with built-in heuristics that flag phishing language, risky file types, and obvious malware signals.
+              <p className="mt-4 max-w-2xl text-lg leading-8 text-rose-700/80">
+                Paste a URL and get a Google-based review result, then check messages and uploads with lightweight heuristics that help spot suspicious content without over-alerting on normal websites.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 transition duration-300 hover:scale-[1.01]">
-                  URL scanning with your own domain prefix
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 transition duration-300 hover:scale-[1.01]">
+                  Normal website review
                 </div>
-                <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-200 transition duration-300 hover:scale-[1.01]">
+                <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-700 transition duration-300 hover:scale-[1.01]">
                   Message and file/image inspection
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/60 p-6">
-              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-100">
-                <p className="font-semibold">Normal scan mode</p>
-                <p className="mt-2 text-cyan-200/90">Paste any URL, message, file, or image and HoaxShield will analyze it immediately.</p>
-              </div>
+            <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50/90 p-6">
+              <Image src="/ai-hero.svg" alt="Warm security illustration" width={520} height={360} className="w-full rounded-2xl" priority />
             </div>
           </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-950/30 backdrop-blur">
+          <div className="rounded-[2rem] border border-rose-200/70 bg-white/80 p-6 shadow-xl shadow-rose-100/70 backdrop-blur">
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "url", label: "Website URL" },
@@ -234,7 +206,7 @@ export default function Home() {
                 <button
                   key={tab.id}
                   type="button"
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition duration-300 hover:-translate-y-0.5 ${tab.id === "url" ? "bg-cyan-500 text-slate-950" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition duration-300 hover:-translate-y-0.5 ${tab.id === "url" ? "bg-rose-500 text-white" : "bg-rose-100 text-rose-700 hover:bg-rose-200"}`}
                 >
                   {tab.label}
                 </button>
@@ -242,8 +214,8 @@ export default function Home() {
             </div>
 
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                <label className="text-sm font-medium text-slate-300" htmlFor="website-url">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4">
+                <label className="text-sm font-medium text-rose-700" htmlFor="website-url">
                   Enter a website URL
                 </label>
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
@@ -251,35 +223,35 @@ export default function Home() {
                     id="website-url"
                     value={urlInput}
                     onChange={(event) => setUrlInput(event.target.value)}
-                    className="flex-1 rounded-2xl border border-slate-700 bg-slate-900/90 px-4 py-3 text-slate-100 outline-none transition duration-300 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                    className="flex-1 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-rose-900 outline-none transition duration-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
                     placeholder="https://example.com"
                   />
                   <button
                     type="button"
                     onClick={handleUrlScan}
-                    className="rounded-2xl bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition duration-300 hover:-translate-y-0.5 hover:bg-cyan-400"
+                    className="rounded-2xl bg-rose-500 px-5 py-3 font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-rose-600"
                   >
                     {loading ? "Scanning..." : "Scan URL"}
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/30">
-                <label className="text-sm font-medium text-slate-300" htmlFor="message">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 transition duration-300 hover:-translate-y-1 hover:border-rose-300">
+                <label className="text-sm font-medium text-rose-700" htmlFor="message">
                   Paste a suspicious message or SMS snippet
                 </label>
                 <textarea
                   id="message"
                   value={messageInput}
                   onChange={(event) => setMessageInput(event.target.value)}
-                  className="mt-3 min-h-28 w-full rounded-2xl border border-slate-700 bg-slate-900/90 px-4 py-3 text-slate-100 outline-none transition duration-300 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                  className="mt-3 min-h-28 w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-rose-900 outline-none transition duration-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
                   placeholder="Urgent! Verify your account now..."
                 />
                 <div className="mt-3 flex justify-end">
                   <button
                     type="button"
                     onClick={handleMessageScan}
-                    className="rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 transition duration-300 hover:-translate-y-0.5 hover:bg-slate-700"
+                    className="rounded-2xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 transition duration-300 hover:-translate-y-0.5 hover:bg-rose-100"
                   >
                     Scan message
                   </button>
@@ -287,38 +259,38 @@ export default function Home() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/30">
-                  <label className="text-sm font-medium text-slate-300" htmlFor="file-upload">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 transition duration-300 hover:-translate-y-1 hover:border-rose-300">
+                  <label className="text-sm font-medium text-rose-700" htmlFor="file-upload">
                     Upload a file
                   </label>
-                  <input id="file-upload" type="file" className="mt-3 block w-full text-sm text-slate-400" onChange={handleFileScan} />
-                  <p className="mt-3 text-sm leading-6 text-slate-400">Text files and common executable-style names are inspected for malware cues.</p>
+                  <input id="file-upload" type="file" className="mt-3 block w-full text-sm text-rose-600" onChange={handleFileScan} />
+                  <p className="mt-3 text-sm leading-6 text-rose-700/80">Text files and common executable-style names are inspected for malware cues.</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/30">
-                  <label className="text-sm font-medium text-slate-300" htmlFor="image-upload">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 transition duration-300 hover:-translate-y-1 hover:border-rose-300">
+                  <label className="text-sm font-medium text-rose-700" htmlFor="image-upload">
                     Upload an image
                   </label>
-                  <input id="image-upload" type="file" accept="image/*" className="mt-3 block w-full text-sm text-slate-400" onChange={handleImageScan} />
-                  <p className="mt-3 text-sm leading-6 text-slate-400">Images are checked for suspicious filenames, oversized payloads, and obvious phishing indicators.</p>
+                  <input id="image-upload" type="file" accept="image/*" className="mt-3 block w-full text-sm text-rose-600" onChange={handleImageScan} />
+                  <p className="mt-3 text-sm leading-6 text-rose-700/80">Images are checked for suspicious filenames, oversized payloads, and obvious phishing indicators.</p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="animate-[fadeInUp_0.8s_ease-out] rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-950/30 backdrop-blur transition duration-300 hover:-translate-y-1">
-              <h2 className="text-xl font-semibold text-white">What the scanner looks for</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-400">
+            <div className="animate-[fadeInUp_0.8s_ease-out] rounded-[2rem] border border-rose-200/70 bg-white/80 p-6 shadow-xl shadow-rose-100/70 backdrop-blur transition duration-300 hover:-translate-y-1">
+              <h2 className="text-xl font-semibold text-rose-900">What the scanner looks for</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-rose-700/80">
                 <li>• Known phishing language such as urgency, prizes, and account verification requests.</li>
-                <li>• Risky URL patterns, suspicious prefixes, and domain-based impersonation clues.</li>
+                <li>• Risky URL patterns and suspicious impersonation clues.</li>
                 <li>• File names and content that resemble malware payloads or executable files.</li>
                 <li>• Message and image uploads that look like social-engineering traps.</li>
               </ul>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-950/30 backdrop-blur transition duration-300 hover:-translate-y-1">
-              <h2 className="text-xl font-semibold text-white">Latest results</h2>
+            <div className="rounded-[2rem] border border-rose-200/70 bg-white/80 p-6 shadow-xl shadow-rose-100/70 backdrop-blur transition duration-300 hover:-translate-y-1">
+              <h2 className="text-xl font-semibold text-rose-900">Latest results</h2>
               <div className="mt-4 space-y-4">
                 {renderResultCard(urlResult)}
                 {renderResultCard(messageResult)}

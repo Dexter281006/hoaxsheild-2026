@@ -5,7 +5,6 @@ const GOOGLE_SAFE_BROWSING_API_KEY = process.env.GOOGLE_SAFE_BROWSING_API_KEY;
 type ScanRequest = {
   mode: "url" | "text" | "file" | "image";
   targetUrl?: string;
-  domainPrefix?: string;
   message?: string;
   fileName?: string;
   mimeType?: string;
@@ -42,8 +41,8 @@ function scoreMessage(text: string) {
   return matches.length;
 }
 
-function buildResult(title: string, summary: string, status: "safe" | "warning" | "danger" | "error", details: string[], source: string, scanUrl?: string) {
-  return { title, summary, status, details, source, scanUrl };
+function buildResult(title: string, summary: string, status: "safe" | "warning" | "danger" | "error", details: string[], source: string) {
+  return { title, summary, status, details, source, scanUrl: "" };
 }
 
 export async function POST(request: Request) {
@@ -56,25 +55,14 @@ export async function POST(request: Request) {
         return NextResponse.json(buildResult("Missing target", "Please provide a URL to inspect.", "warning", ["No target URL was supplied."], "Validation"));
       }
 
-      const domainPrefix = body.domainPrefix?.trim() || "your-domain.com";
-      const scanUrl = `https://${domainPrefix}/scan?target=${encodeURIComponent(targetUrl)}`;
-
       const apiKey = GOOGLE_SAFE_BROWSING_API_KEY;
       const apiUrl = "https://safebrowsing.googleapis.com/v4/threatMatches:find?key=" + apiKey;
 
       if (!apiKey) {
-        const suspiciousTerms = ["free", "gift", "bonus", "verify", "wallet", "crypto", "login"];
-        const lowered = targetUrl.toLowerCase();
-        const matches = suspiciousTerms.filter((term) => lowered.includes(term));
-        const status = matches.length > 0 ? "danger" : "warning";
-        const title = matches.length > 0 ? "Potential phishing target" : "Local heuristic review";
-        const summary = matches.length > 0
-          ? "The URL contains indicators that are commonly associated with phishing or scam pages."
-          : "Google Safe Browsing is not configured right now, so this result is based on local heuristics.";
-        return NextResponse.json(buildResult(title, summary, status, [
+        return NextResponse.json(buildResult("Google review not available", "Google Safe Browsing is not configured right now, so no live review was returned.", "warning", [
           `Scanned URL: ${targetUrl}`,
-          matches.length > 0 ? `Matched terms: ${matches.join(", ")}` : "No obvious keyword flags were found.",
-        ], "Local heuristic scan"));
+          "Google review: Not available",
+        ], "Google Safe Browsing"));
       }
 
       const response = await fetch(apiUrl, {
@@ -92,21 +80,26 @@ export async function POST(request: Request) {
       });
 
       if (!response.ok) {
-        return NextResponse.json(buildResult("Google lookup failed", "The external safety API returned an error, so the result uses a fallback review.", "warning", ["Status: " + response.status], "Google Safe Browsing fallback", scanUrl));
+        return NextResponse.json(buildResult("Google review not available", "The Google review request did not return a valid result.", "warning", [
+          `Scanned URL: ${targetUrl}`,
+          `Google review: Not available`,
+          `Status: ${response.status}`,
+        ], "Google Safe Browsing"));
       }
 
-      const data = (await response.json()) as { matches?: Array<{ threatType: string; platformType: string; threatEntryType: string; threat?: { url: string } }> };
+      const data = (await response.json()) as { matches?: Array<{ threatType: string }> };
       if (data.matches && data.matches.length > 0) {
         const threatTypes = data.matches.map((match) => match.threatType).join(", ");
         return NextResponse.json(buildResult("Suspicious URL detected", "Google Safe Browsing reported a matching threat for this URL.", "danger", [
           `Threat types: ${threatTypes}`,
-          `Target: ${targetUrl}`,
+          `Scanned URL: ${targetUrl}`,
+          "Google review: Available",
         ], "Google Safe Browsing"));
       }
 
-      return NextResponse.json(buildResult("No obvious threats found", "The URL did not match known unsafe entries in Google Safe Browsing.", "safe", [
-        `Target: ${targetUrl}`,
-        "This does not guarantee safety, so extra caution is still advised.",
+      return NextResponse.json(buildResult("No obvious threats found", "Google Safe Browsing did not report a known threat for this URL.", "safe", [
+        `Scanned URL: ${targetUrl}`,
+        "Google review: No threats found",
       ], "Google Safe Browsing"));
     }
 

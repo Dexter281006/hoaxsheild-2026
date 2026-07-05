@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: #fff7fb;
+  --foreground: #7c2d52;
 }
 
 @theme inline {
@@ -28,8 +28,8 @@ body {
 }
 
 ::selection {
-  background: rgba(34, 211, 238, 0.35);
-  color: white;
+  background: rgba(244, 114, 182, 0.25);
+  color: #831843;
 }
 
 @keyframes fadeIn {
@@ -57,9 +57,9 @@ body {
 @keyframes pulseGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.25);
+    box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.22);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0);
+    box-shadow: 0 0 0 8px rgba(244, 114, 182, 0);
   }
 }
