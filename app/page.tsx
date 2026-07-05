@@ -169,13 +169,13 @@ export default function Home() {
           <div className="grid gap-8 p-8 lg:grid-cols-[1.05fr_0.95fr] lg:p-12">
             <div>
               <span className="inline-flex rounded-full border border-rose-300 bg-rose-100 px-3 py-1 text-sm font-medium text-rose-700">
-                Live Google Safe Browsing scan
+                Live VirusTotal URL scan
               </span>
               <h1 className="mt-5 text-4xl font-semibold tracking-tight text-rose-900 sm:text-5xl">
                 Review links, messages, files, and images in one soft and simple workspace.
               </h1>
               <p className="mt-4 max-w-2xl text-lg leading-8 text-rose-700/80">
-                Paste a URL and let HoaxShield run a live Google Safe Browsing check before showing a review result, then inspect messages and uploads with lightweight heuristics that help spot suspicious content without over-alerting on normal websites.
+                Paste a URL and let HoaxShield run a live VirusTotal check before showing a review result, then inspect messages and uploads with lightweight heuristics that help spot suspicious content without over-alerting on normal websites.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">

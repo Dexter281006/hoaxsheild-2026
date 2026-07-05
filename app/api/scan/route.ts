@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const GOOGLE_SAFE_BROWSING_API_KEY = process.env.GOOGLE_SAFE_BROWSING_API_KEY;
+const VIRUSTOTAL_API_KEY = process.env.VIRUSTOTAL_API_KEY;
 
 type ScanRequest = {
   mode: "url" | "text" | "file" | "image";
@@ -45,15 +45,103 @@ function buildResult(title: string, summary: string, status: "safe" | "warning" 
   return { title, summary, status, details, source, scanUrl: "" };
 }
 
-function parseGoogleFailureMessage(responseText: string) {
-  if (!responseText) return "Google Safe Browsing could not be reached.";
-  if (responseText.includes("API_KEY_SERVICE_BLOCKED") || responseText.includes("PERMISSION_DENIED")) {
-    return "The configured Google API key is blocked or not authorized for Safe Browsing.";
+type VirusTotalAnalysisResponse = {
+  data?: {
+    attributes?: {
+      status?: string;
+      stats?: {
+        harmless?: number;
+        malicious?: number;
+        suspicious?: number;
+        undetected?: number;
+      };
+    };
+  };
+};
+
+function getVirusTotalRiskLevel(data: VirusTotalAnalysisResponse) {
+  const stats = data.data?.attributes?.stats;
+  const malicious = stats?.malicious ?? 0;
+  const suspicious = stats?.suspicious ?? 0;
+
+  if (malicious > 0) {
+    return { status: "danger" as const, label: "Malicious" };
   }
-  if (responseText.includes("SERVICE_DISABLED")) {
-    return "The Safe Browsing API is not enabled for the configured Google project.";
+
+  if (suspicious > 0) {
+    return { status: "warning" as const, label: "Suspicious" };
   }
-  return responseText;
+
+  return { status: "safe" as const, label: "No obvious issues" };
+}
+
+async function scanUrlWithVirusTotal(targetUrl: string, apiKey: string) {
+  const submitResponse = await fetch("https://www.virustotal.com/api/v3/urls", {
+    method: "POST",
+    headers: {
+      "x-apikey": apiKey,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ url: targetUrl }),
+  });
+
+  if (!submitResponse.ok) {
+    throw new Error(`VirusTotal submission failed with status ${submitResponse.status}`);
+  }
+
+  const submitData = (await submitResponse.json()) as { data?: { id?: string } };
+  const analysisId = submitData.data?.id;
+
+  if (!analysisId) {
+    throw new Error("VirusTotal did not return an analysis ID.");
+  }
+
+  const analysisResponse = await fetch(`https://www.virustotal.com/api/v3/analyses/${analysisId}`, {
+    headers: {
+      "x-apikey": apiKey,
+      accept: "application/json",
+    },
+  });
+
+  if (!analysisResponse.ok) {
+    throw new Error(`VirusTotal analysis failed with status ${analysisResponse.status}`);
+  }
+
+  const analysisData = (await analysisResponse.json()) as VirusTotalAnalysisResponse;
+  const status = analysisData.data?.attributes?.status ?? "queued";
+  const stats = analysisData.data?.attributes?.stats;
+  const malicious = stats?.malicious ?? 0;
+  const suspicious = stats?.suspicious ?? 0;
+  const harmless = stats?.harmless ?? 0;
+  const undetected = stats?.undetected ?? 0;
+  const risk = getVirusTotalRiskLevel(analysisData);
+
+  if (status !== "completed") {
+    return buildResult("VirusTotal analysis pending", "VirusTotal has not finished analyzing this URL yet.", "warning", [
+      `Scanned URL: ${targetUrl}`,
+      "VirusTotal: analysis pending",
+      "Please try again shortly for a completed report.",
+    ], "VirusTotal");
+  }
+
+  const details = [
+    `Scanned URL: ${targetUrl}`,
+    `VirusTotal: ${risk.label}`,
+    `Malicious: ${malicious}`,
+    `Suspicious: ${suspicious}`,
+    `Harmless: ${harmless}`,
+    `Undetected: ${undetected}`,
+  ];
+
+  if (risk.status === "danger") {
+    return buildResult("Suspicious URL detected", "VirusTotal reported this URL as malicious.", "danger", details, "VirusTotal");
+  }
+
+  if (risk.status === "warning") {
+    return buildResult("Potentially risky URL", "VirusTotal reported suspicious signals for this URL.", "warning", details, "VirusTotal");
+  }
+
+  return buildResult("No obvious threats found", "VirusTotal did not report a known threat for this URL.", "safe", details, "VirusTotal");
 }
 
 export async function POST(request: Request) {
@@ -66,56 +154,25 @@ export async function POST(request: Request) {
         return NextResponse.json(buildResult("Missing target", "Please provide a URL to inspect.", "warning", ["No target URL was supplied."], "Validation"));
       }
 
-      const apiKey = GOOGLE_SAFE_BROWSING_API_KEY;
-      const apiUrl = "https://safebrowsing.googleapis.com/v4/threatMatches:find?key=" + apiKey;
+      const apiKey = VIRUSTOTAL_API_KEY;
 
       if (!apiKey) {
-        return NextResponse.json(buildResult("Google safety check unavailable", "Google Safe Browsing is not configured right now, so no live safety scan could be performed.", "warning", [
+        return NextResponse.json(buildResult("URL safety check unavailable", "VirusTotal is not configured right now, so no live safety scan could be performed.", "warning", [
           `Scanned URL: ${targetUrl}`,
-          "Google Safe Browsing: unavailable",
-          "Add a valid Google Safe Browsing API key to your environment to enable live scanning.",
-        ], "Google Safe Browsing"));
+          "VirusTotal: unavailable",
+          "Add a valid VirusTotal API key to your environment to enable live scanning.",
+        ], "VirusTotal"));
       }
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client: { clientId: "hoaxshield", clientVersion: "1.0.0" },
-          threatInfo: {
-            threatTypes: ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
-            platformTypes: ["ANY_PLATFORM"],
-            threatEntryTypes: ["URL"],
-            threatEntries: [{ url: targetUrl }],
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text();
-        const failureMessage = parseGoogleFailureMessage(responseText);
-        return NextResponse.json(buildResult("Google safety check could not be completed", "The live Google Safe Browsing scan did not complete, so HoaxShield did not produce a false positive review.", "warning", [
+      try {
+        return NextResponse.json(await scanUrlWithVirusTotal(targetUrl, apiKey));
+      } catch (error) {
+        return NextResponse.json(buildResult("URL safety check could not be completed", "The live VirusTotal scan did not complete, so HoaxShield did not produce a false positive review.", "warning", [
           `Scanned URL: ${targetUrl}`,
-          `Google Safe Browsing: unavailable`,
-          `Reason: ${failureMessage}`,
-          `Status: ${response.status}`,
-        ], "Google Safe Browsing"));
+          "VirusTotal: unavailable",
+          error instanceof Error ? `Reason: ${error.message}` : "Reason: unknown error",
+        ], "VirusTotal"));
       }
-
-      const data = (await response.json()) as { matches?: Array<{ threatType: string }> };
-      if (data.matches && data.matches.length > 0) {
-        const threatTypes = data.matches.map((match) => match.threatType).join(", ");
-        return NextResponse.json(buildResult("Suspicious URL detected", "Google Safe Browsing reported a matching threat for this URL.", "danger", [
-          `Threat types: ${threatTypes}`,
-          `Scanned URL: ${targetUrl}`,
-          "Google review: Available",
-        ], "Google Safe Browsing"));
-      }
-
-      return NextResponse.json(buildResult("No obvious threats found", "Google Safe Browsing did not report a known threat for this URL.", "safe", [
-        `Scanned URL: ${targetUrl}`,
-        "Google Safe Browsing: no threats found",
-      ], "Google Safe Browsing"));
     }
 
     if (body.mode === "text") {
