@@ -17,7 +17,7 @@ export default function FuturePreviewPage() {
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 text-slate-300">
           <h2 className="text-xl font-semibold text-white">How it will work</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-slate-400">
-            <li>Visitors will open a branded scan URL such as your-domain.com/scan?target=https://example.com.</li>
+            <li>Visitors will open a branded scan URL that can later be connected to your own domain.</li>
             <li>The site will display a trust-focused analysis page with a clear risk result and explanation.</li>
             <li>You can later add images, screenshots, and visual walkthroughs to make the experience more engaging.</li>
           </ul>

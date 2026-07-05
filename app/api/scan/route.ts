@@ -73,9 +73,8 @@ export async function POST(request: Request) {
           : "Google Safe Browsing is not configured right now, so this result is based on local heuristics.";
         return NextResponse.json(buildResult(title, summary, status, [
           `Scanned URL: ${targetUrl}`,
-          `Prefix preview: ${scanUrl}`,
           matches.length > 0 ? `Matched terms: ${matches.join(", ")}` : "No obvious keyword flags were found.",
-        ], "Local heuristic scan", scanUrl));
+        ], "Local heuristic scan"));
       }
 
       const response = await fetch(apiUrl, {
@@ -102,15 +101,13 @@ export async function POST(request: Request) {
         return NextResponse.json(buildResult("Suspicious URL detected", "Google Safe Browsing reported a matching threat for this URL.", "danger", [
           `Threat types: ${threatTypes}`,
           `Target: ${targetUrl}`,
-          `Scan preview: ${scanUrl}`,
-        ], "Google Safe Browsing", scanUrl));
+        ], "Google Safe Browsing"));
       }
 
       return NextResponse.json(buildResult("No obvious threats found", "The URL did not match known unsafe entries in Google Safe Browsing.", "safe", [
         `Target: ${targetUrl}`,
-        `Scan preview: ${scanUrl}`,
         "This does not guarantee safety, so extra caution is still advised.",
-      ], "Google Safe Browsing", scanUrl));
+      ], "Google Safe Browsing"));
     }
 
     if (body.mode === "text") {

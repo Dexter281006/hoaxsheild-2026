@@ -59,8 +59,6 @@ export default function Home() {
   const [fileResult, setFileResult] = useState<ScanResult | null>(null);
   const [imageResult, setImageResult] = useState<ScanResult | null>(null);
 
-  const prefixedPreview = "https://your-domain.com/scan?target=https://example.com";
-
   const handleUrlScan = async () => {
     const normalized = normalizeUrl(urlInput);
     if (!normalized) {
@@ -78,7 +76,7 @@ export default function Home() {
       const data = await response.json();
       setUrlResult(data);
     } catch {
-      setUrlResult(createFallbackResult("Scan failed", "The scanner could not complete the request right now.", "error", ["Please check your connection and try again."], prefixedPreview, "Local fallback"));
+      setUrlResult(createFallbackResult("Scan failed", "The scanner could not complete the request right now.", "error", ["Please check your connection and try again."], "", "Local fallback"));
     } finally {
       setLoading(false);
     }
